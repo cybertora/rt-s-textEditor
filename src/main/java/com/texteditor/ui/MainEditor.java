@@ -15,7 +15,6 @@ public class MainEditor extends JFrame {
     private final TextEditor editor = new TextEditor();
     private final JTextPane textPane = new JTextPane();
 
-    // Для Apply
     private FontStyle pendingFont = null;
     private Integer pendingSize = null;
     private Color pendingColor = null;
@@ -27,6 +26,9 @@ public class MainEditor extends JFrame {
         setSize(1100, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
+
+        // === Передаём textPane в TextEditor ===
+        editor.setTextPane(textPane);
 
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
@@ -87,7 +89,7 @@ public class MainEditor extends JFrame {
         add(topPanel, BorderLayout.NORTH);
         add(new JScrollPane(textPane), BorderLayout.CENTER);
 
-        // === Синхронизация только текста ===
+        // === Синхронизация текста ===
         textPane.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { syncContent(); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { syncContent(); }
@@ -108,7 +110,7 @@ public class MainEditor extends JFrame {
         setVisible(true);
     }
 
-    // === Применение всех изменений ===
+    // === Применение изменений ===
     private void applyPendingChanges() {
         int start = textPane.getSelectionStart();
         int end = textPane.getSelectionEnd();
@@ -120,7 +122,6 @@ public class MainEditor extends JFrame {
 
         StyledDocument doc = textPane.getStyledDocument();
 
-        // Шрифт
         if (pendingFont != null) {
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setFontFamily(attrs, pendingFont.getName());
@@ -128,13 +129,11 @@ public class MainEditor extends JFrame {
             pendingFont = null;
         }
 
-        // Размер
         if (pendingSize != null) {
             editor.getInvoker().executeCommand(new FontSizeCommand(textPane, pendingSize));
             pendingSize = null;
         }
 
-        // Цвет
         if (pendingColor != null) {
             SimpleAttributeSet attrs = new SimpleAttributeSet();
             StyleConstants.setForeground(attrs, pendingColor);
@@ -142,7 +141,6 @@ public class MainEditor extends JFrame {
             pendingColor = null;
         }
 
-        // Выравнивание (на абзац)
         if (pendingAlign != null) {
             MutableAttributeSet attrs = new SimpleAttributeSet();
             switch (pendingAlign) {
@@ -155,7 +153,6 @@ public class MainEditor extends JFrame {
             pendingAlign = null;
         }
 
-        // Upper/Lower/Spell
         if (pendingCase != null) {
             TextEditingStrategy strategy = switch (pendingCase) {
                 case "Upper Case" -> new UpperCaseStrategy();
@@ -175,6 +172,66 @@ public class MainEditor extends JFrame {
         editor.setContent(textPane.getText());
     }
 
+    // === СОХРАНЕНИЕ С РАСШИРЕНИЕМ И ПРОВЕРКОЙ ===
+    private void showSaveDialog() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Сохранить файл");
+
+        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Word Document (*.docx)", "docx"));
+        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
+        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text File (*.txt)", "txt"));
+
+        int result = chooser.showSaveDialog(this);
+        if (result != JFileChooser.APPROVE_OPTION) return;
+
+        File selectedFile = chooser.getSelectedFile();
+        if (selectedFile == null) {
+            JOptionPane.showMessageDialog(this, "Файл не выбран!");
+            return;
+        }
+
+        String filePath = selectedFile.getAbsolutePath();
+        String extension = getExtension(filePath);
+
+        if (extension.isEmpty()) {
+            javax.swing.filechooser.FileFilter filter = chooser.getFileFilter();
+            if (filter.getDescription().contains("docx")) filePath += ".docx";
+            else if (filter.getDescription().contains("pdf")) filePath += ".pdf";
+            else filePath += ".txt";
+            selectedFile = new File(filePath);
+        }
+
+        if (selectedFile.exists()) {
+            int confirm = JOptionPane.showConfirmDialog(this, "Перезаписать?", "Файл существует", JOptionPane.YES_NO_OPTION);
+            if (confirm != JOptionPane.YES_OPTION) return;
+        }
+
+        try {
+            editor.saveFile(selectedFile);
+            JOptionPane.showMessageDialog(this, "Сохранено:\n" + selectedFile.getAbsolutePath());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private String getExtension(String path) {
+        int i = path.lastIndexOf('.');
+        return i == -1 ? "" : path.substring(i + 1).toLowerCase();
+    }
+
+    private void showOpenDialog() {
+        JFileChooser chooser = new JFileChooser();
+        int result = chooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            try {
+                editor.loadFile(chooser.getSelectedFile());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage());
+            }
+        }
+    }
+
     private JButton createButton(String text, Runnable action) {
         JButton btn = new JButton(text);
         btn.addActionListener(e -> action.run());
@@ -185,29 +242,6 @@ public class MainEditor extends JFrame {
         editor.getInvoker().executeCommand(command);
     }
 
-    private void showOpenDialog() {
-        JFileChooser chooser = new JFileChooser();
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                editor.loadFile(chooser.getSelectedFile());
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage());
-            }
-        }
-    }
-
-    private void showSaveDialog() {
-        JFileChooser chooser = new JFileChooser();
-        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try {
-                editor.saveFile(chooser.getSelectedFile());
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage());
-            }
-        }
-    }
-
-    // === Рендерер шрифтов ===
     private static class FontListCellRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
