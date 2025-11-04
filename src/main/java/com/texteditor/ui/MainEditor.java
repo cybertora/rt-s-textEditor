@@ -2,8 +2,20 @@ package com.texteditor.ui;
 
 import com.texteditor.core.document.*;
 import com.texteditor.core.document.Document;
+import com.texteditor.core.pattern.factory.DocumentFactory;
 import com.texteditor.core.pattern.observer.*;
+import com.texteditor.core.pattern.observer.interfaces.EditorListener;
 import com.texteditor.core.pattern.strategy.*;
+import com.texteditor.core.pattern.strategy.colour.BackgroundStrategy;
+import com.texteditor.core.pattern.strategy.colour.ForegroundStrategy;
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
+import com.texteditor.core.pattern.strategy.size.FontSizeStrategy;
+import com.texteditor.core.pattern.strategy.size.LowerCaseStrategy;
+import com.texteditor.core.pattern.strategy.size.UpperCaseStrategy;
+import com.texteditor.core.pattern.strategy.style.BoldStrategy;
+import com.texteditor.core.pattern.strategy.style.FontFamilyStrategy;
+import com.texteditor.core.pattern.strategy.style.ItalicStrategy;
+import com.texteditor.core.pattern.strategy.style.UnderlineStrategy;
 import com.texteditor.util.FontStyle;
 
 import javax.swing.*;

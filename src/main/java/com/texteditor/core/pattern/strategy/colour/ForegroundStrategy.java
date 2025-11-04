@@ -1,13 +1,16 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.colour;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
+import java.awt.Color;
 
-public class FontSizeStrategy implements TextEditingStrategy {
-    private final int size;
+public class ForegroundStrategy implements TextEditingStrategy {
+    private final Color color;
 
-    public FontSizeStrategy(int size) {
-        this.size = size;
+    public ForegroundStrategy(Color color) {
+        this.color = color;
     }
 
     @Override
@@ -18,7 +21,7 @@ public class FontSizeStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setFontSize(attrs, size);
+        StyleConstants.setForeground(attrs, color);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

@@ -1,4 +1,4 @@
-package com.texteditor.core.pattern.decorator;
+package com.texteditor.core.pattern.decorator.utils;
 
 public class BasicText implements Text {
     private String text;

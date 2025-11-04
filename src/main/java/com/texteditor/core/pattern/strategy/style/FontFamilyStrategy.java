@@ -1,9 +1,17 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.style;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 
-public class BoldStrategy implements TextEditingStrategy {
+public class FontFamilyStrategy implements TextEditingStrategy {
+    private final String family;
+
+    public FontFamilyStrategy(String family) {
+        this.family = family;
+    }
+
     @Override
     public void apply(JTextPane pane) {
         StyledDocument doc = pane.getStyledDocument();
@@ -12,8 +20,7 @@ public class BoldStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        boolean isBold = StyleConstants.isBold(doc.getCharacterElement(start).getAttributes());
-        StyleConstants.setBold(attrs, !isBold);
+        StyleConstants.setFontFamily(attrs, family);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

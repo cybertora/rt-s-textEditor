@@ -1,9 +1,17 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.size;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 
-public class UnderlineStrategy implements TextEditingStrategy {
+public class FontSizeStrategy implements TextEditingStrategy {
+    private final int size;
+
+    public FontSizeStrategy(int size) {
+        this.size = size;
+    }
+
     @Override
     public void apply(JTextPane pane) {
         StyledDocument doc = pane.getStyledDocument();
@@ -12,8 +20,7 @@ public class UnderlineStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        boolean isUnderline = StyleConstants.isUnderline(doc.getCharacterElement(start).getAttributes());
-        StyleConstants.setUnderline(attrs, !isUnderline);
+        StyleConstants.setFontSize(attrs, size);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

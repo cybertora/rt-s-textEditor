@@ -1,5 +1,7 @@
 package com.texteditor.core.pattern.observer;
 
+import com.texteditor.core.pattern.observer.interfaces.Observer;
+
 import java.util.ArrayList;
 import java.util.List;
 

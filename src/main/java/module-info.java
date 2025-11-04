@@ -12,4 +12,10 @@ module com.texteditor {
     exports com.texteditor.core.document;
     exports com.texteditor.core.pattern.observer;
     exports com.texteditor.core.pattern.strategy;
+    exports com.texteditor.core.pattern.factory;
+    exports com.texteditor.core.pattern.observer.interfaces;
+    exports com.texteditor.core.pattern.strategy.colour;
+    exports com.texteditor.core.pattern.strategy.size;
+    exports com.texteditor.core.pattern.strategy.interfaces;
+    exports com.texteditor.core.pattern.strategy.style;
 }

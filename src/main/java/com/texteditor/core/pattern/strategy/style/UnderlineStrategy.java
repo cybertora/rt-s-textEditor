@@ -1,15 +1,11 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.style;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 
-public class FontFamilyStrategy implements TextEditingStrategy {
-    private final String family;
-
-    public FontFamilyStrategy(String family) {
-        this.family = family;
-    }
-
+public class UnderlineStrategy implements TextEditingStrategy {
     @Override
     public void apply(JTextPane pane) {
         StyledDocument doc = pane.getStyledDocument();
@@ -18,7 +14,8 @@ public class FontFamilyStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setFontFamily(attrs, family);
+        boolean isUnderline = StyleConstants.isUnderline(doc.getCharacterElement(start).getAttributes());
+        StyleConstants.setUnderline(attrs, !isUnderline);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

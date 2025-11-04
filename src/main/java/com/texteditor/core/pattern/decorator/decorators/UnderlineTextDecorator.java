@@ -1,4 +1,6 @@
-package com.texteditor.core.pattern.decorator;
+package com.texteditor.core.pattern.decorator.decorators;
+
+import com.texteditor.core.pattern.decorator.utils.Text;
 
 public class UnderlineTextDecorator implements Text {
     private Text wrappedText;

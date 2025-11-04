@@ -1,5 +1,7 @@
 package com.texteditor.core.pattern.strategy;
 
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
+
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 

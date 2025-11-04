@@ -1,13 +1,15 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.colour;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 import java.awt.Color;
 
-public class ForegroundStrategy implements TextEditingStrategy {
+public class BackgroundStrategy implements TextEditingStrategy {
     private final Color color;
 
-    public ForegroundStrategy(Color color) {
+    public BackgroundStrategy(Color color) {
         this.color = color;
     }
 
@@ -19,7 +21,7 @@ public class ForegroundStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setForeground(attrs, color);
+        StyleConstants.setBackground(attrs, color);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

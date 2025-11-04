@@ -1,4 +1,6 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.style;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;

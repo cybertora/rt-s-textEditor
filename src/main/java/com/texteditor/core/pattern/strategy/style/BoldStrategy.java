@@ -1,16 +1,11 @@
-package com.texteditor.core.pattern.strategy;
+package com.texteditor.core.pattern.strategy.style;
+
+import com.texteditor.core.pattern.strategy.interfaces.TextEditingStrategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
-import java.awt.Color;
 
-public class BackgroundStrategy implements TextEditingStrategy {
-    private final Color color;
-
-    public BackgroundStrategy(Color color) {
-        this.color = color;
-    }
-
+public class BoldStrategy implements TextEditingStrategy {
     @Override
     public void apply(JTextPane pane) {
         StyledDocument doc = pane.getStyledDocument();
@@ -19,7 +14,8 @@ public class BackgroundStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setBackground(attrs, color);
+        boolean isBold = StyleConstants.isBold(doc.getCharacterElement(start).getAttributes());
+        StyleConstants.setBold(attrs, !isBold);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }
