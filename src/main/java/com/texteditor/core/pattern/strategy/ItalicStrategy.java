@@ -3,13 +3,7 @@ package com.texteditor.core.pattern.strategy;
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 
-public class FontFamilyStrategy implements TextEditingStrategy {
-    private final String family;
-
-    public FontFamilyStrategy(String family) {
-        this.family = family;
-    }
-
+public class ItalicStrategy implements TextEditingStrategy {
     @Override
     public void apply(JTextPane pane) {
         StyledDocument doc = pane.getStyledDocument();
@@ -18,7 +12,8 @@ public class FontFamilyStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setFontFamily(attrs, family);
+        boolean isItalic = StyleConstants.isItalic(doc.getCharacterElement(start).getAttributes());
+        StyleConstants.setItalic(attrs, !isItalic);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

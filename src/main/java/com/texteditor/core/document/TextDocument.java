@@ -1,31 +1,48 @@
 package com.texteditor.core.document;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Scanner;
 
 public class TextDocument implements Document {
-    private String content;
+
+    private final StringBuilder content = new StringBuilder();
 
     @Override
-    public void open(File file) throws Exception {
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+    public void create() throws IOException {
+        content.setLength(0);
+    }
+
+    @Override
+    public void addText(String text) throws IOException {
+        content.append(text).append("\n");
+    }
+
+    @Override
+    public void save(File file) throws IOException {
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content.toString());
+        }
+    }
+
+    @Override
+    public void load(File file) throws IOException {
+        content.setLength(0);
+        try (FileReader reader = new FileReader(file); Scanner scanner = new Scanner(reader)) {
+            while (scanner.hasNextLine()) {
+                content.append(scanner.nextLine()).append("\n");
             }
         }
-        content = sb.toString();
     }
 
     @Override
-    public void save(File file) throws Exception {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(content);
-        }
+    public String getText() throws IOException {
+        return content.toString();
     }
 
-    @Override
-    public String getContent() { return content; }
-    @Override
-    public void setContent(String content) { this.content = content; }
+    public String getContent() {
+        return content.toString();
+    }
 }

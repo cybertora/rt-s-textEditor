@@ -1,234 +1,298 @@
 package com.texteditor.ui;
 
-import com.texteditor.core.editor.TextEditor;
-import com.texteditor.core.pattern.command.*;
-import com.texteditor.core.pattern.observer.EditorEvent;
+import com.texteditor.core.document.*;
+import com.texteditor.core.document.Document;
+import com.texteditor.core.pattern.observer.*;
 import com.texteditor.core.pattern.strategy.*;
 import com.texteditor.util.FontStyle;
 
 import javax.swing.*;
 import javax.swing.text.*;
+import javax.swing.undo.UndoManager;
 import java.awt.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainEditor extends JFrame {
-    private final TextEditor editor = new TextEditor();
     private final JTextPane textPane = new JTextPane();
+    private final UndoManager undoManager = new UndoManager();
+    private final List<EditorListener> listeners = new ArrayList<>();
+    private Document currentDocument;
 
-    private FontStyle pendingFont = null;
-    private Integer pendingSize = null;
-    private Color pendingColor = null;
-    private String pendingAlign = null;
-    private String pendingCase = null;
+    private boolean inBulletedList = false;
+    private boolean inNumberedList = false;
+    private int nextNumber = 1;
 
     public MainEditor() {
-        setTitle("Clean Text Editor");
-        setSize(1100, 700);
+        setTitle("Text Editor Pro");
+        setSize(1300, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // === Передаём textPane в TextEditor ===
-        editor.setTextPane(textPane);
-
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-
-        toolBar.add(createButton("Load", this::showOpenDialog));
-        toolBar.add(createButton("Save", this::showSaveDialog));
-        toolBar.addSeparator();
-
-        toolBar.add(createButton("Copy", () -> execute(new CopyCommand(textPane))));
-        toolBar.add(createButton("Paste", () -> execute(new PasteCommand(textPane))));
-        toolBar.addSeparator();
-
-        toolBar.add(createButton("Bold", () -> execute(new BoldCommand(textPane))));
-        toolBar.add(createButton("Italic", () -> execute(new ItalicCommand(textPane))));
-        toolBar.add(createButton("Underline", () -> execute(new UnderlineCommand(textPane))));
-        toolBar.addSeparator();
-
-        toolBar.add(createButton("Undo", editor::undo));
-        toolBar.add(createButton("Redo", editor::redo));
-
-        // === Edit Panel (Apply) ===
-        JComboBox<FontStyle> fontBox = new JComboBox<>(FontStyle.values());
-        fontBox.setRenderer(new FontListCellRenderer());
-        fontBox.addActionListener(e -> pendingFont = (FontStyle) fontBox.getSelectedItem());
-
-        JSpinner sizeSpinner = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
-        sizeSpinner.addChangeListener(e -> pendingSize = (Integer) sizeSpinner.getValue());
-
-        JComboBox<String> caseBox = new JComboBox<>(new String[]{"Upper Case", "Lower Case", "Spell Check"});
-        caseBox.addActionListener(e -> pendingCase = (String) caseBox.getSelectedItem());
-
-        JButton colorBtn = new JButton("Color");
-        colorBtn.addActionListener(e -> {
-            Color c = JColorChooser.showDialog(this, "Choose Text Color", Color.BLACK);
-            if (c != null) pendingColor = c;
-        });
-
-        JComboBox<String> alignBox = new JComboBox<>(new String[]{"Left", "Center", "Right", "Justify"});
-        alignBox.addActionListener(e -> pendingAlign = (String) alignBox.getSelectedItem());
-
-        JButton applyBtn = new JButton("Apply");
-        applyBtn.addActionListener(e -> applyPendingChanges());
-
-        JPanel editPanel = new JPanel(new FlowLayout());
-        editPanel.add(new JLabel("Edit:"));
-        editPanel.add(fontBox);
-        editPanel.add(new JLabel("Size:"));
-        editPanel.add(sizeSpinner);
-        editPanel.add(caseBox);
-        editPanel.add(colorBtn);
-        editPanel.add(alignBox);
-        editPanel.add(applyBtn);
-
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(toolBar, BorderLayout.NORTH);
-        topPanel.add(editPanel, BorderLayout.SOUTH);
-
-        add(topPanel, BorderLayout.NORTH);
-        add(new JScrollPane(textPane), BorderLayout.CENTER);
-
-        // === Синхронизация текста ===
-        textPane.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { syncContent(); }
-            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { syncContent(); }
-            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { syncContent(); }
-            private void syncContent() { editor.setContent(textPane.getText()); }
-        });
-
-        // === Загрузка файла ===
-        editor.addListener(event -> {
-            if (event.getType() == EditorEvent.Type.FILE_LOADED) {
-                SwingUtilities.invokeLater(() -> {
-                    textPane.setText(editor.getContent());
-                    textPane.setCaretPosition(0);
-                });
-            }
-        });
+        initToolbar();          // ВСЁ ВВЕРХУ!
+        initTextPane();
+        initListeners();
 
         setVisible(true);
     }
 
-    // === Применение изменений ===
-    private void applyPendingChanges() {
-        int start = textPane.getSelectionStart();
-        int end = textPane.getSelectionEnd();
+    // === ВСЁ МЕНЮ ВВЕРХУ ===
+    private void initToolbar() {
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
 
-        if (start == end) {
-            JOptionPane.showMessageDialog(this, "Выделите текст!");
-            return;
-        }
+        // === ФАЙЛ ===
+        toolBar.add(createButton("New", this::newFile));
+        toolBar.add(createButton("Open", this::openFile));
+        toolBar.add(createSaveButton());
+        toolBar.addSeparator();
 
-        StyledDocument doc = textPane.getStyledDocument();
+        // === КОПИРОВАНИЕ ===
+        toolBar.add(createButton("Copy", () -> textPane.copy()));
+        toolBar.add(createButton("Paste", () -> textPane.paste()));
+        toolBar.addSeparator();
 
-        if (pendingFont != null) {
-            SimpleAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setFontFamily(attrs, pendingFont.getName());
-            doc.setCharacterAttributes(start, end - start, attrs, false);
-            pendingFont = null;
-        }
+        // === ФОРМАТИРОВАНИЕ ===
+        toolBar.add(createButton("Bold", () -> applyStrategy(new BoldStrategy())));
+        toolBar.add(createButton("Italic", () -> applyStrategy(new ItalicStrategy())));
+        toolBar.add(createButton("Underline", () -> applyStrategy(new UnderlineStrategy())));
+        toolBar.addSeparator();
 
-        if (pendingSize != null) {
-            editor.getInvoker().executeCommand(new FontSizeCommand(textPane, pendingSize));
-            pendingSize = null;
-        }
+        // === ШРИФТ, РАЗМЕР, ЦВЕТ ===
+        JComboBox<FontStyle> fontBox = new JComboBox<>(FontStyle.values());
+        fontBox.setRenderer(new FontListCellRenderer());
+        fontBox.addActionListener(e -> applyStrategy(new FontFamilyStrategy(((FontStyle) fontBox.getSelectedItem()).getName())));
+        toolBar.add(fontBox);
 
-        if (pendingColor != null) {
-            SimpleAttributeSet attrs = new SimpleAttributeSet();
-            StyleConstants.setForeground(attrs, pendingColor);
-            doc.setCharacterAttributes(start, end - start, attrs, false);
-            pendingColor = null;
-        }
+        JSpinner sizeSpinner = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
+        sizeSpinner.addChangeListener(e -> applyStrategy(new FontSizeStrategy((Integer) sizeSpinner.getValue())));
+        toolBar.add(sizeSpinner);
 
-        if (pendingAlign != null) {
-            MutableAttributeSet attrs = new SimpleAttributeSet();
-            switch (pendingAlign) {
-                case "Left" -> StyleConstants.setAlignment(attrs, StyleConstants.ALIGN_LEFT);
-                case "Center" -> StyleConstants.setAlignment(attrs, StyleConstants.ALIGN_CENTER);
-                case "Right" -> StyleConstants.setAlignment(attrs, StyleConstants.ALIGN_RIGHT);
-                case "Justify" -> StyleConstants.setAlignment(attrs, StyleConstants.ALIGN_JUSTIFIED);
+        JButton colorBtn = new JButton("Color");
+        colorBtn.addActionListener(e -> {
+            Color c = JColorChooser.showDialog(this, "Text Color", Color.BLACK);
+            if (c != null) applyStrategy(new ForegroundStrategy(c));
+        });
+        toolBar.add(colorBtn);
+
+        JButton bgBtn = new JButton("Bg");
+        bgBtn.addActionListener(e -> {
+            Color c = JColorChooser.showDialog(this, "Background", Color.YELLOW);
+            if (c != null) applyStrategy(new BackgroundStrategy(c));
+        });
+        toolBar.add(bgBtn);
+
+        toolBar.addSeparator();
+
+        // === ВЫРАВНИВАНИЕ ===
+        JComboBox<String> alignBox = new JComboBox<>(new String[]{"Left", "Center", "Right", "Justify"});
+        alignBox.addActionListener(e -> {
+            int align = switch ((String) alignBox.getSelectedItem()) {
+                case "Left" -> StyleConstants.ALIGN_LEFT;
+                case "Center" -> StyleConstants.ALIGN_CENTER;
+                case "Right" -> StyleConstants.ALIGN_RIGHT;
+                case "Justify" -> StyleConstants.ALIGN_JUSTIFIED;
+                default -> StyleConstants.ALIGN_LEFT;
+            };
+            applyStrategy(new AlignmentStrategy(align));
+        });
+        toolBar.add(alignBox);
+
+        // === СПИСКИ ===
+        JComboBox<String> listBox = new JComboBox<>(new String[]{"None", "Bulleted", "Numbered"});
+        listBox.addActionListener(e -> {
+            String s = (String) listBox.getSelectedItem();
+            if ("Bulleted".equals(s)) {
+                inBulletedList = true; inNumberedList = false; nextNumber = 1;
+            } else if ("Numbered".equals(s)) {
+                inNumberedList = true; inBulletedList = false; nextNumber = 1;
+            } else {
+                inBulletedList = inNumberedList = false;
             }
-            doc.setParagraphAttributes(start, end - start, attrs, false);
-            pendingAlign = null;
-        }
+        });
+        toolBar.add(listBox);
 
-        if (pendingCase != null) {
-            TextEditingStrategy strategy = switch (pendingCase) {
+        toolBar.addSeparator();
+
+        // === РЕГИСТР ===
+        JComboBox<String> caseBox = new JComboBox<>(new String[]{"Upper Case", "Lower Case"});
+        caseBox.addActionListener(e -> {
+            String s = (String) caseBox.getSelectedItem();
+            TextEditingStrategy strategy = switch (s) {
                 case "Upper Case" -> new UpperCaseStrategy();
                 case "Lower Case" -> new LowerCaseStrategy();
-                case "Spell Check" -> new SpellCheckStrategy();
                 default -> null;
             };
-            if (strategy != null) {
-                String selectedText = textPane.getSelectedText();
-                String newText = strategy.edit(selectedText);
-                textPane.replaceSelection(newText);
-                editor.setContent(textPane.getText());
-            }
-            pendingCase = null;
-        }
+            if (strategy != null) applyStrategy(strategy);
+        });
+        toolBar.add(caseBox);
 
-        editor.setContent(textPane.getText());
+        toolBar.addSeparator();
+
+        // === UNDO/REDO ===
+        toolBar.add(createButton("Undo", () -> { if (undoManager.canUndo()) undoManager.undo(); }));
+        toolBar.add(createButton("Redo", () -> { if (undoManager.canRedo()) undoManager.redo(); }));
+
+        add(toolBar, BorderLayout.NORTH); // ВСЁ ВВЕРХУ!
     }
 
-    // === СОХРАНЕНИЕ С РАСШИРЕНИЕМ И ПРОВЕРКОЙ ===
-    private void showSaveDialog() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Сохранить файл");
+    private void initTextPane() {
+        add(new JScrollPane(textPane), BorderLayout.CENTER);
+        textPane.getDocument().addUndoableEditListener(e -> undoManager.addEdit(e.getEdit()));
+    }
 
-        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Word Document (*.docx)", "docx"));
-        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
-        chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text File (*.txt)", "txt"));
+    private void initListeners() {
+        textPane.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyPressed(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER && !e.isConsumed()) {
+                    handleEnter();
+                    e.consume();
+                } else if (e.getKeyCode() == java.awt.event.KeyEvent.VK_BACK_SPACE && !e.isConsumed()) {
+                    handleBackspace();
+                    e.consume();
+                }
+            }
+        });
 
-        int result = chooser.showSaveDialog(this);
-        if (result != JFileChooser.APPROVE_OPTION) return;
+        addEditorListener(event -> {
+            if (event.getType() == EditorEvent.Type.FILE_LOADED) {
+                undoManager.discardAllEdits();
+                resetListState();
+                JOptionPane.showMessageDialog(this, "Загружено: " + event.getMessage());
+            } else if (event.getType() == EditorEvent.Type.FILE_SAVED) {
+                JOptionPane.showMessageDialog(this, "Сохранено: " + event.getMessage());
+            }
+        });
+    }
 
-        File selectedFile = chooser.getSelectedFile();
-        if (selectedFile == null) {
-            JOptionPane.showMessageDialog(this, "Файл не выбран!");
-            return;
-        }
-
-        String filePath = selectedFile.getAbsolutePath();
-        String extension = getExtension(filePath);
-
-        if (extension.isEmpty()) {
-            javax.swing.filechooser.FileFilter filter = chooser.getFileFilter();
-            if (filter.getDescription().contains("docx")) filePath += ".docx";
-            else if (filter.getDescription().contains("pdf")) filePath += ".pdf";
-            else filePath += ".txt";
-            selectedFile = new File(filePath);
-        }
-
-        if (selectedFile.exists()) {
-            int confirm = JOptionPane.showConfirmDialog(this, "Перезаписать?", "Файл существует", JOptionPane.YES_NO_OPTION);
-            if (confirm != JOptionPane.YES_OPTION) return;
-        }
+    private void handleBackspace() {
+        StyledDocument doc = textPane.getStyledDocument();
+        int pos = textPane.getCaretPosition();
+        if (pos <= 0) return;
 
         try {
-            editor.saveFile(selectedFile);
-            JOptionPane.showMessageDialog(this, "Сохранено:\n" + selectedFile.getAbsolutePath());
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage(), "Ошибка", JOptionPane.ERROR_MESSAGE);
-        }
+            // === СПИСКИ ===
+            if (inBulletedList && pos >= 2 && doc.getText(pos - 2, 2).equals("• ")) {
+                doc.remove(pos - 2, 2);
+                if (pos - 2 <= 0 || doc.getText(0, pos - 2).trim().isEmpty()) {
+                    inBulletedList = false;
+                }
+                return;
+            }
+
+            if (inNumberedList && pos >= 4) {
+                String prev = doc.getText(pos - 4, 4);
+                if (prev.matches("\\d+\\. ")) {
+                    int len = prev.indexOf('.') + 2;
+                    doc.remove(pos - len, len);
+                    nextNumber = Math.max(1, nextNumber - 1);
+                    if (nextNumber <= 1) inNumberedList = false;
+                    return;
+                }
+            }
+
+            // === ОБЫЧНЫЙ BACKSPACE ===
+            doc.remove(pos - 1, 1);
+        } catch (Exception ignored) {}
     }
 
-    private String getExtension(String path) {
-        int i = path.lastIndexOf('.');
-        return i == -1 ? "" : path.substring(i + 1).toLowerCase();
+    private void handleEnter() {
+        StyledDocument doc = textPane.getStyledDocument();
+        int pos = textPane.getCaretPosition();
+        try {
+            if (inBulletedList) {
+                doc.insertString(pos, "\n• ", null);
+                textPane.setCaretPosition(pos + 3);
+            } else if (inNumberedList) {
+                String num = String.valueOf(nextNumber++);
+                doc.insertString(pos, "\n" + num + ". ", null);
+                textPane.setCaretPosition(pos + num.length() + 3);
+            } else {
+                doc.insertString(pos, "\n", null);
+            }
+        } catch (Exception ignored) {}
     }
 
-    private void showOpenDialog() {
+    private void resetListState() {
+        inBulletedList = inNumberedList = false;
+        nextNumber = 1;
+    }
+
+    // === СОХРАНЕНИЕ В ЛЮБОМ ФОРМАТЕ ===
+    private JButton createSaveButton() {
+        JButton saveBtn = new JButton("Save");
+        saveBtn.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Сохранить как...");
+            chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Text File (*.txt)", "txt"));
+            chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Word Document (*.docx)", "docx"));
+            chooser.addChoosableFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PDF Document (*.pdf)", "pdf"));
+
+            if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                File file = chooser.getSelectedFile();
+                String ext = getExtension(file.getName());
+                if (!file.getName().contains(".")) {
+                    file = new File(file.getParent(), file.getName() + "." + ext);
+                }
+
+                try {
+                    currentDocument = DocumentFactory.create(ext);
+                    currentDocument.addText(textPane.getText());
+                    currentDocument.save(file);
+                    fireEvent(new EditorEvent(EditorEvent.Type.FILE_SAVED, file.getName()));
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage());
+                }
+            }
+        });
+        return saveBtn;
+    }
+
+    private void newFile() {
+        textPane.setText("");
+        currentDocument = null;
+        undoManager.discardAllEdits();
+        resetListState();
+    }
+
+    private void openFile() {
         JFileChooser chooser = new JFileChooser();
-        int result = chooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = chooser.getSelectedFile();
             try {
-                editor.loadFile(chooser.getSelectedFile());
+                currentDocument = DocumentFactory.open(file);
+                String content = extractText(currentDocument);
+                textPane.setText(content);
+                fireEvent(new EditorEvent(EditorEvent.Type.FILE_LOADED, file.getName()));
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Ошибка: " + ex.getMessage());
             }
+        }
+    }
+
+    private String extractText(Document doc) throws Exception {
+        if (doc instanceof TextDocument td) {
+            return td.getContent();
+        } else if (doc instanceof RichTextDocument rd) {
+            return doc.getText();
+        } else if (doc instanceof PdfDocument pd) {
+            return "PDF content not supported for display";
+        }
+        return "";
+    }
+
+    private String getExtension(String filename) {
+        int dot = filename.lastIndexOf('.');
+        return dot == -1 ? "txt" : filename.substring(dot + 1).toLowerCase();
+    }
+
+    private void applyStrategy(TextEditingStrategy strategy) {
+        int start = textPane.getSelectionStart();
+        int end = textPane.getSelectionEnd();
+        if (start != end) {
+            strategy.apply(textPane);
         }
     }
 
@@ -238,9 +302,8 @@ public class MainEditor extends JFrame {
         return btn;
     }
 
-    private void execute(Command command) {
-        editor.getInvoker().executeCommand(command);
-    }
+    private void addEditorListener(EditorListener listener) { listeners.add(listener); }
+    private void fireEvent(EditorEvent event) { listeners.forEach(l -> l.onEvent(event)); }
 
     private static class FontListCellRenderer extends DefaultListCellRenderer {
         @Override

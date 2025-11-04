@@ -2,12 +2,13 @@ package com.texteditor.core.pattern.strategy;
 
 import javax.swing.JTextPane;
 import javax.swing.text.*;
+import java.awt.Color;
 
-public class FontFamilyStrategy implements TextEditingStrategy {
-    private final String family;
+public class BackgroundStrategy implements TextEditingStrategy {
+    private final Color color;
 
-    public FontFamilyStrategy(String family) {
-        this.family = family;
+    public BackgroundStrategy(Color color) {
+        this.color = color;
     }
 
     @Override
@@ -18,7 +19,7 @@ public class FontFamilyStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setFontFamily(attrs, family);
+        StyleConstants.setBackground(attrs, color);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }

@@ -3,11 +3,11 @@ package com.texteditor.core.pattern.strategy;
 import javax.swing.JTextPane;
 import javax.swing.text.*;
 
-public class FontFamilyStrategy implements TextEditingStrategy {
-    private final String family;
+public class FontSizeStrategy implements TextEditingStrategy {
+    private final int size;
 
-    public FontFamilyStrategy(String family) {
-        this.family = family;
+    public FontSizeStrategy(int size) {
+        this.size = size;
     }
 
     @Override
@@ -18,7 +18,7 @@ public class FontFamilyStrategy implements TextEditingStrategy {
         if (start == end) return;
 
         SimpleAttributeSet attrs = new SimpleAttributeSet();
-        StyleConstants.setFontFamily(attrs, family);
+        StyleConstants.setFontSize(attrs, size);
         doc.setCharacterAttributes(start, end - start, attrs, false);
     }
 }
